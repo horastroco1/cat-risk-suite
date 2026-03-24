@@ -1,0 +1,15 @@
+======================================================================
+  CATASTROPHE RISK MORNING BRIEFING — March 24, 2026
+  (No-LLM mode — raw data summary)
+======================================================================
+
+  Earthquakes scanned : 211
+  NWS alerts scanned  : 54
+  FEMA declarations   : 3
+
+  ⚡ Portfolio matches found: 1
+
+  [POL-001] Sunshine Plaza LLC — Weather – Wind Advisory | Severity: Moderate | Insured Value: $5,000,000
+    └─ Wind Advisory issued March 24 at 2:26AM EDT until March 24 at 8:00PM EDT by NWS Jacksonville FL
+
+  Run with ANTHROPIC_API_KEY or OPENAI_API_KEY for a full LLM briefing.

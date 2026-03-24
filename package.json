@@ -1,0 +1,14 @@
+{
+  "name": "cat-risk-suite",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CAT Risk Suite — Netlify + serverless + Supabase",
+  "type": "module",
+  "scripts": {
+    "test": "node netlify/functions/_shared/test-geo.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "@turf/turf": "^7.2.0"
+  }
+}

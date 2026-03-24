@@ -1,0 +1,64 @@
+[build]
+  publish = "mrcat"
+  command = "npm install"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["@supabase/supabase-js"]
+
+# Scheduled functions require a paid Netlify plan — uncomment to enable:
+# [functions.scheduled-run]
+#   schedule = "55 12 * * *"
+
+[[redirects]]
+  from = "/api/run"
+  to = "/.netlify/functions/api-run"
+  status = 200
+
+[[redirects]]
+  from = "/api/runs"
+  to = "/.netlify/functions/api-runs"
+  status = 200
+
+[[redirects]]
+  from = "/api/portfolio"
+  to = "/.netlify/functions/api-portfolio"
+  status = 200
+
+[[redirects]]
+  from = "/api/hits"
+  to = "/.netlify/functions/api-hits"
+  status = 200
+
+[[redirects]]
+  from = "/api/delta"
+  to = "/.netlify/functions/api-delta"
+  status = 200
+
+[[redirects]]
+  from = "/api/briefing"
+  to = "/.netlify/functions/api-briefing"
+  status = 200
+
+[[redirects]]
+  from = "/api/explain"
+  to = "/.netlify/functions/api-explain"
+  status = 200
+
+[[redirects]]
+  from = "/api/settings"
+  to = "/.netlify/functions/api-settings"
+  status = 200
+
+[[redirects]]
+  from = "/api/email-digest"
+  to = "/.netlify/functions/api-email-digest"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

@@ -1,0 +1,13 @@
+======================================================================
+  CATASTROPHE RISK MORNING BRIEFING — March 24, 2026
+  (No-LLM mode — raw data summary)
+======================================================================
+
+  Earthquakes scanned : 211
+  NWS alerts scanned  : 54
+  FEMA declarations   : 0
+
+  ⚡ Portfolio matches found: 0
+
+
+  Run with ANTHROPIC_API_KEY or OPENAI_API_KEY for a full LLM briefing.

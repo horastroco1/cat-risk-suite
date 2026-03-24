@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🌪️ CAT Risk Suite — Morning Command Center</title>
+  <meta name="description" content="Catastrophe Risk Analyst daily operations dashboard."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<!-- Trust / feed health ribbon -->
+<div id="trust-ribbon" class="trust-ribbon" role="status" aria-live="polite">
+  <span class="trust-ribbon-inner">
+    <strong>Sources &amp; freshness</strong>
+    <span id="trust-feeds">—</span>
+    <span id="trust-latency" class="trust-meta"></span>
+    <span id="data-mode-badge" class="data-mode-badge data-mode-synthetic">Synthetic portfolio</span>
+  </span>
+</div>
+
+<!-- Command palette (Ctrl/Cmd+K) -->
+<div id="command-palette" class="command-palette hidden" role="dialog" aria-modal="true" aria-label="Command palette">
+  <div class="command-palette-backdrop" onclick="closeCommandPalette()"></div>
+  <div class="command-palette-panel">
+    <input type="search" id="command-input" class="command-input" placeholder="Run scan, copy brief, help…" autocomplete="off"/>
+    <ul id="command-list" class="command-list"></ul>
+  </div>
+</div>
+
+<!-- Help drawer -->
+<div id="help-drawer" class="help-drawer hidden">
+  <div class="help-drawer-backdrop" onclick="toggleHelpDrawer(false)"></div>
+  <div class="help-drawer-panel">
+    <button type="button" class="help-close" onclick="toggleHelpDrawer(false)">×</button>
+    <h2>Methodology &amp; trust</h2>
+    <p>All <strong>counts and tables</strong> come from USGS, NWS, FEMA, SPC, and NHC feeds processed on the server. <strong>TIV in proximity is not a loss estimate.</strong></p>
+    <p>AI narrative (if enabled) is a draft summary only — verify against the structured data above it.</p>
+    <h3>Keyboard</h3>
+    <ul>
+      <li><kbd>S</kbd> Run morning scan</li>
+      <li><kbd>B</kbd> Copy briefing</li>
+      <li><kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd> Command palette</li>
+      <li><kbd>?</kbd> This help</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ── SEASON BANNER ──────────────────────────────────────────────────────── -->
+<div id="season-banner" class="season-banner">
+  <span id="season-icon">🔬</span>
+  <strong id="season-name">Off-Season</strong>
+  <span id="season-desc">Model validation — testing the software's math against historical data.</span>
+</div>
+
+<div class="layout">
+
+  <!-- ── SIDEBAR ──────────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">🌪️</div>
+      <div>
+        <div class="logo-title">CAT Risk Suite</div>
+        <div class="logo-sub">Daily Operations Center</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-section-label">Morning</div>
+      <button class="nav-btn active" data-tool="briefing">
+        <span class="nav-icon">🌅</span>
+        <span>Morning Briefing</span>
+        <span id="nav-badge-briefing" class="nav-badge hidden"></span>
+      </button>
+      <button class="nav-btn" data-tool="events">
+        <span class="nav-icon">🗺️</span>
+        <span>Live Event Tracker</span>
+        <span id="nav-badge-events" class="nav-badge hidden"></span>
+      </button>
+
+      <div class="nav-section-label">Mid-Day Analysis</div>
+      <button class="nav-btn" data-tool="pml">
+        <span class="nav-icon">📈</span>
+        <span>PML / EP Curve</span>
+      </button>
+      <button class="nav-btn" data-tool="portfolio">
+        <span class="nav-icon">🗂️</span>
+        <span>Portfolio Map</span>
+      </button>
+      <button class="nav-btn" data-tool="dataquality">
+        <span class="nav-icon">🔍</span>
+        <span>Data Quality</span>
+      </button>
+
+      <div class="nav-section-label">Afternoon</div>
+      <button class="nav-btn" data-tool="underwriting">
+        <span class="nav-icon">🤝</span>
+        <span>Underwriting Advisor</span>
+      </button>
+      <button class="nav-btn" data-tool="claims">
+        <span class="nav-icon">🚨</span>
+        <span>Claims Triage</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-date" id="sidebar-date"></div>
+      <button type="button" class="btn-ghost" onclick="toggleDarkMode()" title="Toggle theme">Theme</button>
+      <div class="sidebar-api-status" id="api-status-line">
+        <span class="dot green"></span> <span id="api-status-text">API ready</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN CONTENT ──────────────────────────────────────────────────────── -->
+  <main class="main">
+
+    <!-- ════ TOOL: MORNING BRIEFING ════════════════════════════════════════ -->
+    <section class="tool-panel active" id="tool-briefing">
+      <div id="morning-card" class="morning-card hidden">
+        <div class="morning-card-head">
+          <h2 id="morning-greeting" class="morning-greeting">Good morning.</h2>
+          <span id="morning-scan-ms" class="morning-meta"></span>
+        </div>
+        <div id="morning-quiet" class="morning-quiet hidden"></div>
+        <div id="morning-stats" class="morning-stats"></div>
+        <div id="policy-spotlight" class="policy-spotlight hidden"></div>
+        <div class="morning-actions">
+          <button type="button" class="btn-secondary" onclick="copyBriefEmail()">Copy as email</button>
+          <button type="button" class="btn-secondary" onclick="copyBriefSlides()">Copy slide bullets</button>
+          <button type="button" class="btn-secondary" onclick="draftOutreach()">Draft outreach (top hit)</button>
+          <label class="toggle-label"><input type="checkbox" id="numbers-only"/> Numbers only (hide AI)</label>
+          <button type="button" class="btn-secondary" onclick="generateAiNarrative()">Generate AI narrative</button>
+        </div>
+      </div>
+
+      <div class="panel-header">
+        <div>
+          <h1 class="panel-title">🌅 Morning Briefing</h1>
+          <p class="panel-subtitle">Live disaster scan → AI-generated executive report</p>
+        </div>
+        <div class="panel-actions">
+          <label class="param-label">Days back
+            <select id="brief-days" class="param-select">
+              <option value="1">1 day</option>
+              <option value="3">3 days</option>
+              <option value="7" selected>7 days</option>
+              <option value="14">14 days</option>
+            </select>
+          </label>
+          <label class="param-label">Radius (mi)
+            <select id="brief-radius" class="param-select">
+              <option value="50">50 mi</option>
+              <option value="100" selected>100 mi</option>
+              <option value="150">150 mi</option>
+              <option value="250">250 mi</option>
+            </select>
+          </label>
+          <button id="btn-briefing" class="btn-primary" onclick="runBriefing()">
+            ▶ Run Morning Scan
+          </button>
+        </div>
+      </div>
+
+      <div class="manual-box">
+        <div class="manual-title">📖 How to use this tool</div>
+        <p>Every morning, a CAT Analyst starts by scanning for events that happened overnight. This tool pulls live data from <strong>USGS</strong> (earthquakes), <strong>NWS</strong> (weather alerts), and <strong>FEMA</strong> (disaster declarations), then cross-checks them against your insured portfolio. The AI then writes you a professional executive briefing — the same report your manager expects on their desk by 9am.</p>
+        <ul>
+          <li>Choose <strong>Days back</strong> to control how far back to scan (7 days is standard morning routine).</li>
+          <li>Choose <strong>Radius</strong> in miles — how close a disaster must be to a policyholder to count as an exposure hit.</li>
+          <li>Click <strong>Run Morning Scan</strong>. Takes about 10–15 seconds.</li>
+          <li>The report is formatted for copy-paste into an email or PowerPoint.</li>
+        </ul>
+      </div>
+
+      <div class="prompt-packs">
+        <span class="prompt-packs-label">Prompt packs</span>
+        <button type="button" class="chip-btn" onclick="runPromptPack('summary')">24h summary + caveats</button>
+        <button type="button" class="chip-btn" onclick="runPromptPack('exec')">Exec two-liner</button>
+        <button type="button" class="chip-btn" onclick="runPromptPack('underwriting')">Note to underwriting</button>
+      </div>
+
+      <div id="briefing-stats" class="stats-row hidden"></div>
+      <div id="briefing-structured" class="briefing-structured hidden"></div>
+      <div id="briefing-ai" class="briefing-ai hidden"></div>
+      <div id="briefing-output" class="report-output hidden"></div>
+      <div id="briefing-loader" class="loader-wrap hidden">
+        <div class="spinner"></div>
+        <div class="loader-text">Scanning live disaster feeds and analyzing portfolio exposure…</div>
+      </div>
+    </section>
+
+    <!-- ════ TOOL: LIVE EVENT TRACKER ══════════════════════════════════════ -->
+    <section class="tool-panel" id="tool-events">
+      <div class="panel-header">
+        <div>
+          <h1 class="panel-title">🗺️ Live Event Tracker</h1>
+          <p class="panel-subtitle">Real-time US natural disaster events — severity ranked</p>
+        </div>
+        <div class="panel-actions">
+          <label class="param-label">Days back
+            <select id="events-days" class="param-select">
+              <option value="1">1 day</option>
+              <option value="3">3 days</option>
+              <option value="7" selected>7 days</option>
+              <option value="14">14 days</option>
+            </select>
+          </label>
+          <button class="btn-primary" onclick="loadEvents()">↻ Refresh</button>
+        </div>
+      </div>
+
+      <div class="manual-box">
+        <div class="manual-title">📖 How to use this tool</div>
+        <p>Throughout the day, especially during <strong>Hurricane Season (June–Nov)</strong>, a CAT Analyst keeps this tracker open. It shows all major seismic and weather events in real-time. During an active storm, you would update leadership with "live-CAT" briefings every few hours.</p>
+        <ul>
+          <li><strong>Earthquakes</strong> — filtered by M3.5+ from the USGS catalog.</li>
+          <li><strong>Weather Alerts</strong> — severe and extreme alerts from the National Weather Service.</li>
+          <li><strong>FEMA Declarations</strong> — federally declared disasters (these trigger the most claims).</li>
+          <li>Red = High severity, Orange = Moderate, Green = Low. Click any row to see details.</li>
+        </ul>
+      </div>
+
+      <div id="events-loader" class="loader-wrap">
+        <div class="spinner"></div>
+        <div class="loader-text">Loading live event data…</div>
+      </div>
+      <div id="events-output" class="hidden">
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchTab('earthquakes')">🌍 Earthquakes <span id="eq-count" class="tab-count"></span></button>
+          <button class="tab-btn" onclick="switchTab('alerts')">⛈️ Weather Alerts <span id="al-count" class="tab-count"></span></button>
+          <button class="tab-btn" onclick="switchTab('fema')">🏛️ FEMA Declarations <span id="fe-count" class="tab-count"></span></button>
+          <button class="tab-btn" onclick="switchTab('hits')">⚡ Portfolio Hits <span id="hi-count" class="tab-count"></span></button>
+        </div>
+        <div id="events-table"></div>
+      </div>
+    </section>
+
+    <!-- ════ TOOL: PML / EP CURVE ══════════════════════════════════════════ -->
+    <section class="tool-panel" id="tool-pml">
+      <div class="panel-header">
+        <div>
+          <h1 class="panel-title">📈 PML Report & EP Curve</h1>
+          <p class="panel-subtitle">Probable Maximum Loss · Average Annual Loss · Exceedance Probability</p>
+        </div>
+        <button class="btn-primary" onclick="loadPML()">↻ Calculate</button>
+      </div>
+
+      <div class="manual-box">
+        <div class="manual-title">📖 How to use this tool</div>
+        <p>The PML Report and EP Curve are the two most important technical outputs a CAT Analyst produces. You present these to <strong>senior management, actuaries, and reinsurance teams</strong>.</p>
+        <ul>
+          <li><strong>PML (Probable Maximum Loss)</strong> — the largest loss expected to occur in a 1-in-100 or 1-in-250 year event. If a "1-in-100 year hurricane" hits, how much does the company lose?</li>
+          <li><strong>AAL (Average Annual Loss)</strong> — the expected loss per year on average, across thousands of simulated years. This is the basis for pricing.</li>
+          <li><strong>EP Curve</strong> — a graph showing loss amounts at each return period. Used in reinsurance negotiations and regulatory filings (AM Best, S&P).</li>
+          <li>⚠️ This is a <em>demonstration model</em>. Real PML uses RMS (Moody's) or AIR (Verisk) platforms.</li>
+        </ul>
+      </div>
+
+      <div id="pml-loader" class="loader-wrap">
+        <div class="spinner"></div>
+        <div class="loader-text">Running stochastic simulation…</div>
+      </div>
+      <div id="pml-output" class="hidden">
+        <div id="pml-kpis" class="kpi-row"></div>
+        <div class="chart-container">
+          <canvas id="ep-chart"></canvas>
+        </div>
+        <div id="pml-table"></div>
+      </div>
+    </section>
+
+    <!-- ════ TOOL: PORTFOLIO MAP ══════════════════════════════════════════ -->
+    <section class="tool-panel" id="tool-portfolio">
+      <div class="panel-header">
+        <div>
+          <h1 class="panel-title">🗂️ Portfolio Map & Risk Hotspots</h1>
+          <p class="panel-subtitle">Geographic concentration of insured exposure</p>
+        </div>
+        <button class="btn-primary" onclick="loadPortfolio()">↻ Load Portfolio</button>
+      </div>
+
+      <div class="manual-box">
+        <div class="manual-title">📖 How to use this tool</div>
+        <p>A critical mid-day task is identifying <strong>risk concentration</strong> — too many high-value policies in one geographic area. If a single hurricane wipes out a Florida coastal zone and you have 40 policies there, that's catastrophic. This tool shows those hotspots.</p>
+        <ul>
+          <li>The <strong>map</strong> shows each policyholder as a circle sized by insured value.</li>
+          <li>The <strong>peril breakdown bar chart</strong> shows where your total exposure is concentrated by hazard type.</li>
+          <li>In a real workflow, you'd use ArcGIS or QGIS for this — this tool replicates the core insight.</li>
+          <li>Red circles = highest value policies. Overlapping circles = concentration risk.</li>
+        </ul>
+      </div>
+
+      <div id="portfolio-loader" class="loader-wrap">
+        <div class="spinner"></div><div class="loader-text">Loading portfolio…</div>
+      </div>
+      <div id="portfolio-output" class="hidden">
+        <div id="portfolio-kpis" class="kpi-row"></div>
+        <div class="two-col">
+          <div id="portfolio-map" class="map-container"></div>
+          <div id="portfolio-chart-wrap">
+            <div class="chart-title">Exposure by Peril Type</div>
+            <canvas id="peril-chart"></canvas>
+          </div>
+        </div>
+        <div id="portfolio-table"></div>
+      </div>
+    </section>
+
+    <!-- ════ TOOL: DATA QUALITY ══════════════════════════════════════════ -->
+    <section class="tool-panel" id="tool-dataquality">
+      <div class="panel-header">
+        <div>
+          <h1 class="panel-title">🔍 Data Quality Checker</h1>
+          <p class="panel-subtitle">Validate & score your exposure data before running models</p>
+        </div>
+        <button class="btn-primary" onclick="runDataQuality()">▶ Run Quality Check</button>
+      </div>
+
+      <div class="manual-box">
+        <div class="manual-title">📖 How to use this tool</div>
+        <p>Data cleaning is <strong>30–50% of a CAT Analyst's actual time</strong>. Before running any catastrophe model, the input data (property locations, construction types, insured values) must be clean and complete. Garbage in = garbage out. This tool audits the portfolio and flags issues that would skew your model results.</p>
+        <ul>
+          <li><strong>Missing geocodes</strong> — properties without lat/lon can't be modeled spatially.</li>
+          <li><strong>Missing construction data</strong> — construction type affects vulnerability by 20–40%.</li>
+          <li><strong>Age flags</strong> — pre-1980 buildings often lack modern building codes, increasing loss potential.</li>
+          <li><strong>Value outliers</strong> — unusually high or low insured values may indicate data entry errors.</li>
+          <li>Fix flagged issues before feeding data into RMS or AIR models.</li>
+        </ul>
+      </div>
+
+      <div id="dq-loader" class="loader-wrap hidden">
+        <div class="spinner"></div><div class="loader-text">Auditing portfolio data…</div>
+      </div>
+      <div id="dq-output" class="hidden"></div>
+    </section>
+
+    <!-- ════ TOOL: UNDERWRITING ADVISOR ════════════════════════════════════ -->
+    <section class="tool-panel" id="tool-underwriting">
+      <div class="panel-header">
+        <div>
+          <h1 class="panel-title">🤝 Underwriting Advisor</h1>
+          <p class="panel-subtitle">AI-powered WRITE / DECLINE recommendation for new submissions</p>
+        </div>
+      </div>
+
+      <div class="manual-box">
+        <div class="manual-title">📖 How to use this tool</div>
+        <p>Every afternoon, underwriters bring new property submissions to the CAT Analyst: <em>"Should we insure this hotel in Miami? What's our exposure?"</em>. The analyst evaluates the risk against the existing portfolio and says yes, no, or "yes, but raise the premium." This tool automates that analysis.</p>
+        <ul>
+          <li>Fill in the property details below and click <strong>Get Recommendation</strong>.</li>
+          <li>The AI checks the property against the current portfolio PML, concentration risk, and peril exposure.</li>
+          <li>Output includes a WRITE / CONDITIONAL / DECLINE decision with reasoning.</li>
+          <li>Recommended terms (premium loading, sublimits, exclusions) are also suggested.</li>
+        </ul>
+      </div>
+
+      <div class="uw-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Property Name</label>
+            <input id="uw-name" class="form-input" value="Lakefront Hotel & Convention Center" placeholder="e.g. Riverside Office Park"/>
+          </div>
+          <div class="form-group">
+            <label>Address / City</label>
+            <input id="uw-address" class="form-input" value="Tampa, FL" placeholder="e.g. Tampa, FL"/>
+          </div>
+          <div class="form-group">
+            <label>State</label>
+            <input id="uw-state" class="form-input" value="FL" maxlength="2" placeholder="TX"/>
+          </div>
+          <div class="form-group">
+            <label>Latitude</label>
+            <input id="uw-lat" class="form-input" type="number" value="27.9506" step="0.0001"/>
+          </div>
+          <div class="form-group">
+            <label>Longitude</label>
+            <input id="uw-lon" class="form-input" type="number" value="-82.4572" step="0.0001"/>
+          </div>
+          <div class="form-group">
+            <label>Insured Value ($)</label>
+            <input id="uw-value" class="form-input" type="number" value="8500000"/>
+          </div>
+          <div class="form-group">
+            <label>Construction Type</label>
+            <select id="uw-construction" class="form-input">
+              <option>Wood Frame</option>
+              <option>Masonry</option>
+              <option selected>Reinforced Concrete</option>
+              <option>Steel Frame</option>
+              <option>Mobile / Manufactured</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Occupancy</label>
+            <select id="uw-occupancy" class="form-input">
+              <option>Residential</option>
+              <option selected>Commercial</option>
+              <option>Industrial</option>
+              <option>Medical</option>
+              <option>Hospitality</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Year Built</label>
+            <input id="uw-year" class="form-input" type="number" value="2008"/>
+          </div>
+          <div class="form-group">
+            <label>Perils Requested</label>
+            <div class="peril-checkboxes" id="uw-perils">
+              <label><input type="checkbox" value="Hurricane" checked/> Hurricane</label>
+              <label><input type="checkbox" value="Flood" checked/> Flood</label>
+              <label><input type="checkbox" value="Wind" checked/> Wind</label>
+              <label><input type="checkbox" value="Tornado"/> Tornado</label>
+              <label><input type="checkbox" value="Earthquake"/> Earthquake</label>
+              <label><input type="checkbox" value="Wildfire"/> Wildfire</label>
+              <label><input type="checkbox" value="Hail"/> Hail</label>
+            </div>
+          </div>
+        </div>
+        <button class="btn-primary" onclick="runUnderwriting()">▶ Get AI Recommendation</button>
+      </div>
+
+      <div id="uw-loader" class="loader-wrap hidden">
+        <div class="spinner"></div>
+        <div class="loader-text">Analyzing risk against portfolio and running CAT model context…</div>
+      </div>
+      <div id="uw-output" class="report-output hidden"></div>
+    </section>
+
+    <!-- ════ TOOL: CLAIMS TRIAGE ═══════════════════════════════════════════ -->
+    <section class="tool-panel" id="tool-claims">
+      <div class="panel-header">
+        <div>
+          <h1 class="panel-title">🚨 Claims Triage</h1>
+          <p class="panel-subtitle">Prioritized list of policyholders most likely to file claims today</p>
+        </div>
+        <div class="panel-actions">
+          <label class="param-label">Days back
+            <select id="claims-days" class="param-select">
+              <option value="3">3 days</option>
+              <option value="7" selected>7 days</option>
+            </select>
+          </label>
+          <button class="btn-primary" onclick="runClaims()">▶ Triage Now</button>
+        </div>
+      </div>
+
+      <div class="manual-box">
+        <div class="manual-title">📖 How to use this tool</div>
+        <p>After a major event, the claims team needs to know <em>who to call first</em>. A CAT Analyst provides a prioritized triage list — ranked by claim likelihood, urgency, and estimated loss — so adjusters can proactively reach out to policyholders before the calls flood in.</p>
+        <ul>
+          <li><strong>Immediate</strong> — likely filing a claim within 24 hours. Assign a dedicated adjuster now.</li>
+          <li><strong>Same-day</strong> — affected by the event, may file soon. Monitor closely.</li>
+          <li><strong>Monitor</strong> — marginal exposure, watch but don't mobilize resources yet.</li>
+          <li>The estimated claim range is a rough guide, not a formal reserve. Use vendor models for actual reserves.</li>
+        </ul>
+      </div>
+
+      <div id="claims-loader" class="loader-wrap hidden">
+        <div class="spinner"></div>
+        <div class="loader-text">Scanning exposures and prioritizing claims…</div>
+      </div>
+      <div id="claims-output" class="hidden"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Chart.js for EP curve and peril bar chart -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<!-- Leaflet.js for the portfolio map -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
